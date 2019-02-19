@@ -1,0 +1,17 @@
+plugins {
+	id 'java'
+}
+
+group = 'com.github.tpucal.spring5cglib'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '11'
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation group: 'org.springframework', name: 'spring-context', version: '5.1.5.RELEASE'
+}
+
+

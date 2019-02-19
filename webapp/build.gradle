@@ -1,0 +1,46 @@
+plugins {
+	id 'java'
+}
+
+
+apply plugin: 'war'
+
+
+group = 'com.github.tpucal.spring5cglib'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '11'
+
+repositories {
+	mavenCentral()
+}
+
+
+war {
+	archiveName 'a.war'
+}
+
+
+war.destinationDir = new File("$rootDir/tomcat-output/webapps")
+
+
+dependencies {
+	providedCompile project(':core')
+	providedCompile group: 'org.springframework', name: 'spring-webmvc', version: '5.1.5.RELEASE'
+}
+
+
+task copyRuntimeLibs(type: Copy) {
+	into file("$rootDir/tomcat-output/lib")
+	from configurations.providedCompile
+}
+
+
+task buildExample {
+	doLast {
+		println "Built example to $rootDir/tomcat-output"
+	}
+}
+
+buildExample.dependsOn {
+	[copyRuntimeLibs, war]
+}

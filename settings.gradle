@@ -1,0 +1,11 @@
+pluginManagement {
+	repositories {
+		gradlePluginPortal()
+	}
+}
+rootProject.name = 'spring5-cglib-linkage-error'
+
+include 'core'
+include 'webapp'
+
+
