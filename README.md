@@ -9,7 +9,7 @@ Steps to reproduce:
 1. Execute `./gradlew clean buildExample` 
 2. Copy shared libraries from tomcat-output/lib to _tomcat_/lib directory
 3. Copy twice tomcat-output/webapps/a.war to _tomcat_/webapps directory, so that you have two same webapplications, eg. a.war and b.war
-4. Start Tomcat
+4. Start Tomcat (`chmod +x *.sh`, `catalina.sh run` in _tomcat_/bin)
 5. Go to: http://localhost:8080/b/greeting?param=bar
 6. Go to: http://localhost:8080/a/greeting?param=bar (order is important)
 
@@ -21,6 +21,24 @@ You'll get an exception:
 Message Request processing failed; nested exception is org.springframework.cglib.core.CodeGenerationException: java.lang.LinkageError-->loader java.net.URLClassLoader @68bbe345 (instance of java.net.URLClassLoader, child of 'app' jdk.internal.loader.ClassLoaders$AppClassLoader) attempted duplicate class definition for com.github.tpucal.spring5cglib.core.SeriousService$$FastClassBySpringCGLIB$$14909946.
 ```
 
+
+Analysis:
+1. Webapp A starts
+2. Spring generates `com.github.tpucal.spring5cglib.core.SeriousService$$EnhancerBySpringCGLIB$$76f58ae7`  
+  1.1 Thread context classloader: `ParallelWebappClassLoader@3976` (Context: a) and has parent `URLClassLoader@3856`  
+  1.2 `ReflectionUtils.defineClass` uses `MethodHandles.Lookup` and defined class ends up in `URLClassLoader@3856` instead of `ParallelWebappClassLoader@3976`
+3. Webapp B starts
+4. Spring generates: `com.github.tpucal.spring5cglib.core.SeriousService$$EnhancerBySpringCGLIB$$76f58ae7`   
+  4.1 Thread context classloader: `ParallelWebappClassLoader@5259` (Context: b) and has parent `URLClassLoader@3856`  
+  4.2 `ReflectionUtils.defineClass` fails to create class using `MethodHandles.Lookup` and gets `java.lang.LinkageError` because class with the same name was created by webappA in shared classloader in step 1.2  
+  4.3 `ClassLoader.defineClass` fallback works and class is defined in the correct `ParallelWebappClassLoader@5259`
+5. Accessing http://localhost:8080/b/greeting?param=bar
+6. Spring generates: `com.github.tpucal.spring5cglib.core.SeriousService$$FastClassBySpringCGLIB$$14909946`  
+  6.1  `MethodHandles.lookup` succeeds and generated class is assigned to `URLClassLoader@3856` instead of `ParallelWebappClassLoader@5259`  
+7. Accessing http://localhost:8080/a/greeting?param=bar
+8. Spring generates: `com.github.tpucal.spring5cglib.core.SeriousService$$FastClassBySpringCGLIB$$14909946`  
+  8.1 `MethodHandles.lookup` fails with `java.lang.LinkageError` because class with the same name was created in step 6.1    
+  8.2 Fallback to `ClassLoader.defineClass` doesn't work because class defined in step 1.2 ended up in `URLClassLoader@3856` and `MethodProxy.c2` has `URLClassLoader@3856` instead of expected `ParallelWebappClassLoader@3976`  
 
 Full stacktrace:
 
